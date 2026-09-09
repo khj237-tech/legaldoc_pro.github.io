@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegalDoc Pro | 생활 법률 문서 자동 생성기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        @media print {
+            body * { visibility: hidden; }
+            #document-preview, #document-preview * { visibility: visible; }
+            #document-preview {
+                position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px;
+                box-shadow: none !important; border: none !important;
+            }
+            .no-print { display: none !important; }
+        }
+        .legal-stamp {
+            border: 2px solid #ef4444; color: #ef4444; padding: 4px 12px; border-radius: 50%;
+            font-weight: 900; letter-spacing: 2px; transform: rotate(-15deg); display: inline-block;
+        }
+        .input-base {
+            border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.6rem 0.75rem; font-size: 0.8rem; 
+            width: 100%; outline: none; transition: all 0.2s; background-color: #f8fafc;
+        }
+        .input-base:focus { border-color: #6366f1; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+        .doc-tab-btn {
+            padding: 0.5rem 0.3rem; border-radius: 0.6rem; border: 1px solid #e2e8f0; background: #fff;
+            color: #475569; font-size: 0.7rem; font-weight: 500; text-align: center; cursor: pointer;
+            transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .doc-tab-btn:hover { border-color: #cbd5e1; background: #f8fafc; transform: translateY(-1px); }
+        .doc-tab-btn.active { border-color: #6366f1; background: #eef2ff; color: #4f46e5; font-weight: 700; box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15); }
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 no-print shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="showMainHome()">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white p-2.5 rounded-2xl text-lg font-black flex items-center justify-center shadow-md shadow-indigo-200">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xl font-extrabold tracking-tight text-slate-900">LegalDoc <span class="text-indigo-600">Pro</span></span>
+                    <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Gemini AI 탑재 생활 법률 도우미 (30종+)</span>
+                </div>
+            </div>
+
+            <div class="flex space-x-2 sm:space-x-3 text-xs font-semibold items-center">
+                <button onclick="showMainHome()" id="nav-home-btn" class="text-slate-600 hover:text-indigo-600 px-3 py-2 rounded-xl transition flex items-center space-x-1">
+                    <i class="fa-solid fa-house"></i>
+                    <span class="hidden sm:inline-block">메인 홈</span>
+                </button>
+                <div class="h-4 w-[1px] bg-slate-200"></div>
+                <button onclick="openAIAgent()" class="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-3.5 py-2.5 rounded-xl font-bold transition flex items-center space-x-1.5 shadow-md shadow-indigo-100">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Gemini AI 법률 상담</span>
+                </button>
+                <button onclick="downloadPDF()" id="pdf-btn" class="hidden bg-rose-500 hover:bg-rose-600 text-white px-3.5 py-2.5 rounded-xl font-bold transition flex items-center space-x-1.5 shadow-md shadow-rose-100">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span class="hidden sm:inline-block">PDF 저장</span>
+                </button>
+                <button onclick="window.print()" id="print-btn" class="hidden bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2.5 rounded-xl font-bold transition flex items-center space-x-1.5 shadow-md">
+                    <i class="fa-solid fa-print"></i>
+                    <span class="hidden sm:inline-block">인쇄하기</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-[1400px] w-full mx-auto p-4 md:p-6">
+        <section id="main-home-section" class="space-y-8 py-4 no-print">
+            <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 sm:p-12 shadow-xl border border-indigo-900/50">
+                <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none text-indigo-300">
+                    <i class="fa-solid fa-gavel text-[320px]"></i>
+                </div>
+                <div class="relative z-10 max-w-2xl space-y-4">
+                    <span class="inline-flex items-center space-x-2 bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm">
+                        <i class="fa-solid fa-microchip"></i>
+                        <span>Gemini 2.5 Flash 실시간 AI 대화 모델 탑재</span>
+                    </span>
+                    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
+                        답답한 억울함,<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">Gemini AI와 실시간 상의</span>하세요.
+                    </h1>
+                    <p class="text-slate-300 text-sm sm:text-base font-normal leading-relaxed">
+                        아르바이트 임금 문제, 중고거래 피해, 결석사유서, 환불 분쟁 등<br class="hidden sm:block">
+                        AI 모델이 법률/생활 가이드를 제공하고 필요한 서류 완성을 도와드립니다.
+                    </p>
+                    <div class="pt-2 flex flex-wrap gap-3">
+                        <button onclick="openAIAgent()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center space-x-2">
+                            <i class="fa-solid fa-comments"></i>
+                            <span>AI 챗봇과 실시간 상담하기</span>
+                        </button>
+                        <button onclick="startDocument('labor')" class="bg-white/10 hover:bg-white/20 text-white font-semibold text-sm px-5 py-3.5 rounded-xl border border-white/15 backdrop-blur-sm transition flex items-center space-x-2">
+                            <span>전체 서류 양식 보기</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">모든 법률 & 생활 서류 양식 (30종)</h2>
+                        <p class="text-slate-500 text-xs mt-0.5">상황에 맞는 카테고리에서 서류를 클릭해 보세요.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base font-bold"><i class="fa-solid fa-handshake"></i></div>
+                            <h3 class="font-bold text-slate-800 text-sm">계약 및 약속 (8종)</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 text-xs">
+                            <button onclick="startDocument('labor')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">표준 근로계약서</button>
+                            <button onclick="startDocument('iou')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">차용증</button>
+                            <button onclick="startDocument('settlement')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">합의서</button>
+                            <button onclick="startDocument('memo')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">각서 (서약서)</button>
+                            <button onclick="startDocument('nda')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">비밀유지계약서</button>
+                            <button onclick="startDocument('roommate')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">룸메이트 수칙</button>
+                            <button onclick="startDocument('pretrade')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">부동산 가계약서</button>
+                            <button onclick="startDocument('itemtrade')" class="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 font-semibold text-slate-700 text-left transition">직거래 계약서</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-base font-bold"><i class="fa-solid fa-gavel"></i></div>
+                            <h3 class="font-bold text-slate-800 text-sm">분쟁 및 사법 (8종)</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 text-xs">
+                            <button onclick="startDocument('complaint')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">고소장 (경찰서)</button>
+                            <button onclick="startDocument('smallclaims')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">소액소장 (법원)</button>
+                            <button onclick="startDocument('refund')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">청약철회/환불</button>
+                            <button onclick="startDocument('notice')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">내용증명서</button>
+                            <button onclick="startDocument('petition')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">진정서 (노동청)</button>
+                            <button onclick="startDocument('paymentorder')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">지급명령 신청서</button>
+                            <button onclick="startDocument('statement')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">피해 경위서</button>
+                            <button onclick="startDocument('testimony')" class="p-2 rounded-lg bg-slate-50 hover:bg-rose-50 hover:text-rose-600 font-semibold text-slate-700 text-left transition">목격자 진술서</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base font-bold"><i class="fa-solid fa-graduation-cap"></i></div>
+                            <h3 class="font-bold text-slate-800 text-sm">학교 & 동아리 (5종)</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 text-xs">
+                            <button onclick="startDocument('fieldtrip')" class="p-2 rounded-lg bg-slate-50 hover:bg-amber-50 hover:text-amber-600 font-semibold text-slate-700 text-left transition">체험학습 신청서</button>
+                            <button onclick="startDocument('absence')" class="p-2 rounded-lg bg-slate-50 hover:bg-amber-50 hover:text-amber-600 font-semibold text-slate-700 text-left transition">결석 사유서</button>
+                            <button onclick="startDocument('clubrules')" class="p-2 rounded-lg bg-slate-50 hover:bg-amber-50 hover:text-amber-600 font-semibold text-slate-700 text-left transition">동아리 약정서</button>
+                            <button onclick="startDocument('contest')" class="p-2 rounded-lg bg-slate-50 hover:bg-amber-50 hover:text-amber-600 font-semibold text-slate-700 text-left transition">공모전 팀 협약서</button>
+                            <button onclick="startDocument('study')" class="p-2 rounded-lg bg-slate-50 hover:bg-amber-50 hover:text-amber-600 font-semibold text-slate-700 text-left transition col-span-2">스터디 회비 규칙서</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base font-bold"><i class="fa-solid fa-file-signature"></i></div>
+                            <h3 class="font-bold text-slate-800 text-sm">동의 및 권리 (5종)</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 text-xs">
+                            <button onclick="startDocument('parent')" class="p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 font-semibold text-slate-700 text-left transition">부모님 동의서</button>
+                            <button onclick="startDocument('power')" class="p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 font-semibold text-slate-700 text-left transition">위임장</button>
+                            <button onclick="startDocument('portrait')" class="p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 font-semibold text-slate-700 text-left transition">초상권 동의서</button>
+                            <button onclick="startDocument('copyright')" class="p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 font-semibold text-slate-700 text-left transition">저작물 이용허락</button>
+                            <button onclick="startDocument('privacy')" class="p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 font-semibold text-slate-700 text-left transition col-span-2">개인정보 수집 동의서</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3 md:col-span-2 lg:col-span-2">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-base font-bold"><i class="fa-solid fa-folder-open"></i></div>
+                            <h3 class="font-bold text-slate-800 text-sm">생활 및 기타 증명 (4종)</h3>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                            <button onclick="startDocument('rental')" class="p-2 rounded-lg bg-slate-50 hover:bg-purple-50 hover:text-purple-600 font-semibold text-slate-700 text-left transition">물품 대여 확인서</button>
+                            <button onclick="startDocument('residence')" class="p-2 rounded-lg bg-slate-50 hover:bg-purple-50 hover:text-purple-600 font-semibold text-slate-700 text-left transition">거주 사실 확인서</button>
+                            <button onclick="startDocument('damages')" class="p-2 rounded-lg bg-slate-50 hover:bg-purple-50 hover:text-purple-600 font-semibold text-slate-700 text-left transition">손해배상 청구서</button>
+                            <button onclick="startDocument('receipt')" class="p-2 rounded-lg bg-slate-50 hover:bg-purple-50 hover:text-purple-600 font-semibold text-slate-700 text-left transition">간이 영수증/정산서</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="editor-section" class="hidden grid-cols-1 xl:grid-cols-12 gap-6">
+            <div class="xl:col-span-5 space-y-4 no-print h-full flex flex-col">
+                <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80 space-y-2">
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-xs font-bold text-slate-700">문서 종류 선택</span>
+                        <span class="text-[10px] text-slate-400">총 30종 제공</span>
+                    </div>
+                    <div class="max-h-36 overflow-y-auto pr-1 space-y-2">
+                        <div class="grid grid-cols-5 gap-1 text-[10px]">
+                            <button id="btn-labor" onclick="selectDoc('labor')" class="doc-tab-btn active">근로계약</button>
+                            <button id="btn-iou" onclick="selectDoc('iou')" class="doc-tab-btn">차용증</button>
+                            <button id="btn-settlement" onclick="selectDoc('settlement')" class="doc-tab-btn">합의서</button>
+                            <button id="btn-memo" onclick="selectDoc('memo')" class="doc-tab-btn">각서</button>
+                            <button id="btn-nda" onclick="selectDoc('nda')" class="doc-tab-btn">NDA</button>
+                            <button id="btn-roommate" onclick="selectDoc('roommate')" class="doc-tab-btn">룸메수칙</button>
+                            <button id="btn-pretrade" onclick="selectDoc('pretrade')" class="doc-tab-btn">부동산계약</button>
+                            <button id="btn-itemtrade" onclick="selectDoc('itemtrade')" class="doc-tab-btn">직거래</button>
+                            
+                            <button id="btn-complaint" onclick="selectDoc('complaint')" class="doc-tab-btn">고소장</button>
+                            <button id="btn-smallclaims" onclick="selectDoc('smallclaims')" class="doc-tab-btn">소액소장</button>
+                            <button id="btn-refund" onclick="selectDoc('refund')" class="doc-tab-btn">환불요청</button>
+                            <button id="btn-notice" onclick="selectDoc('notice')" class="doc-tab-btn">내용증명</button>
+                            <button id="btn-petition" onclick="selectDoc('petition')" class="doc-tab-btn">진정서</button>
+                            <button id="btn-paymentorder" onclick="selectDoc('paymentorder')" class="doc-tab-btn">지급명령</button>
+                            <button id="btn-statement" onclick="selectDoc('statement')" class="doc-tab-btn">피해경위</button>
+                            <button id="btn-testimony" onclick="selectDoc('testimony')" class="doc-tab-btn">목격진술</button>
+                            
+                            <button id="btn-fieldtrip" onclick="selectDoc('fieldtrip')" class="doc-tab-btn">체험학습</button>
+                            <button id="btn-absence" onclick="selectDoc('absence')" class="doc-tab-btn">결석사유</button>
+                            <button id="btn-clubrules" onclick="selectDoc('clubrules')" class="doc-tab-btn">동아리약정</button>
+                            <button id="btn-contest" onclick="selectDoc('contest')" class="doc-tab-btn">공모전팀</button>
+                            <button id="btn-study" onclick="selectDoc('study')" class="doc-tab-btn">스터디수칙</button>
+                            
+                            <button id="btn-parent" onclick="selectDoc('parent')" class="doc-tab-btn">부모동의</button>
+                            <button id="btn-power" onclick="selectDoc('power')" class="doc-tab-btn">위임장</button>
+                            <button id="btn-portrait" onclick="selectDoc('portrait')" class="doc-tab-btn">초상권</button>
+                            <button id="btn-copyright" onclick="selectDoc('copyright')" class="doc-tab-btn">저작권</button>
+                            <button id="btn-privacy" onclick="selectDoc('privacy')" class="doc-tab-btn">개인정보</button>
+                            
+                            <button id="btn-rental" onclick="selectDoc('rental')" class="doc-tab-btn">물품대여</button>
+                            <button id="btn-residence" onclick="selectDoc('residence')" class="doc-tab-btn">거주확인</button>
+                            <button id="btn-damages" onclick="selectDoc('damages')" class="doc-tab-btn">손해배상</button>
+                            <button id="btn-receipt" onclick="selectDoc('receipt')" class="doc-tab-btn">영수증</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex-grow overflow-y-auto max-h-[480px]">
+                    <h3 id="form-header-title" class="font-bold text-slate-800 text-sm pb-2 border-b border-slate-100 mb-4 flex items-center justify-between">
+                        <span class="flex items-center"><i class="fa-solid fa-pen-nib text-indigo-600 mr-2"></i>정보 입력</span>
+                        <span class="text-[10px] text-slate-400 font-normal">실시간 미리보기에 반영됨</span>
+                    </h3>
+
+                    <!-- 개별 입력 폼들 -->
+                    <div id="form-labor" class="form-section active space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600">사업장명 (갑)</span><input type="text" id="l-company" class="input-base mt-1" oninput="updateDoc()" placeholder="예: 행복편의점"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600">대표자명 (갑)</span><input type="text" id="l-employer" class="input-base mt-1" oninput="updateDoc()" placeholder="홍길동"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600">근로자명 (을)</span><input type="text" id="l-employee" class="input-base mt-1" oninput="updateDoc()" placeholder="김알바"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600">시급 (원)</span><input type="number" id="l-wage" class="input-base mt-1" oninput="updateDoc()" placeholder="10030"></div>
+                        </div>
+                        <div><span class="text-[11px] font-bold text-slate-600">근무 시간</span><input type="text" id="l-hours" class="input-base mt-1" oninput="updateDoc()" placeholder="매주 주말 09:00 ~ 15:00"></div>
+                    </div>
+
+                    <div id="form-iou" class="form-section space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600">채권자 (빌려준 사람)</span><input type="text" id="i-lender" class="input-base mt-1" oninput="updateDoc()"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600">채무자 (빌린 사람)</span><input type="text" id="i-borrower" class="input-base mt-1" oninput="updateDoc()"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600">금액 (원)</span><input type="number" id="i-amount" class="input-base mt-1" oninput="updateDoc()"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600">변제기일</span><input type="date" id="i-date" class="input-base mt-1" onchange="updateDoc()"></div>
+                        </div>
+                    </div>
+
+                    <div id="form-complaint" class="form-section space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600">고소인 (본인)</span><input type="text" id="c-plaintiff" class="input-base mt-1" oninput="updateDoc()"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600">피고소인 (가해자)</span><input type="text" id="c-defendant" class="input-base mt-1" oninput="updateDoc()"></div>
+                        </div>
+                        <div><span class="text-[11px] font-bold text-slate-600">죄명</span><input type="text" id="c-charge" class="input-base mt-1" oninput="updateDoc()" placeholder="예: 사기죄"></div>
+                        <div><span class="text-[11px] font-bold text-slate-600">피해 내역</span><textarea id="c-content" class="input-base mt-1 resize-none" rows="3" oninput="updateDoc()"></textarea></div>
+                    </div>
+
+                    <!-- 공용 입력 폼 (대부분의 문서를 커버) -->
+                    <div id="form-generic" class="form-section space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[11px] font-bold text-slate-600" id="generic-label-a">당사자 A (갑)</span><input type="text" id="g-partyA" class="input-base mt-1" oninput="updateDoc()"></div>
+                            <div><span class="text-[11px] font-bold text-slate-600" id="generic-label-b">당사자 B (을)</span><input type="text" id="g-partyB" class="input-base mt-1" oninput="updateDoc()"></div>
+                        </div>
+                        <div><span class="text-[11px] font-bold text-slate-600">상세 내용 및 특약 (선택)</span><textarea id="g-content" class="input-base mt-1 resize-none" rows="4" oninput="updateDoc()" placeholder="문서에 추가할 세부 내용이나 대상(예: 거래 물품, 사유 등)을 입력하세요."></textarea></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold text-slate-600 uppercase"><i class="fa-solid fa-file-signature mr-1 text-indigo-600"></i>전자 서명/직인</span>
+                        <button onclick="clearSignature()" class="text-[10px] text-rose-500 hover:underline">지우기</button>
+                    </div>
+                    <div class="border border-slate-200 rounded-xl bg-slate-50 relative mb-2">
+                        <canvas id="sig-canvas" class="w-full h-14 cursor-crosshair rounded-xl"></canvas>
+                    </div>
+                    <button onclick="applySignature()" class="w-full bg-slate-800 text-white py-2 rounded-xl text-xs font-bold hover:bg-slate-900 transition shadow-sm">문서에 서명 찍기</button>
+                </div>
+            </div>
+
+            <div class="xl:col-span-7 flex justify-center overflow-x-auto bg-slate-200/60 p-4 sm:p-6 rounded-2xl border border-slate-200/80 min-h-[600px]">
+                <div id="document-preview" class="bg-white w-[210mm] min-h-[297mm] p-12 shadow-xl flex flex-col justify-between text-[13px] leading-relaxed relative flex-shrink-0 rounded-sm">
+                    <div class="z-10 relative flex-grow">
+                        <div class="text-center mb-8 pb-4 border-b-2 border-slate-900 flex flex-col items-center">
+                            <h1 id="doc-title" class="text-[28px] font-black tracking-widest text-slate-900 mb-2">문 서 제 목</h1>
+                            <span id="doc-stamp" class="legal-stamp text-[10px] hidden">법적 증빙용</span>
+                        </div>
+                        <div id="doc-body" class="space-y-4 text-justify">
+                            <!-- JS를 통해 동적 생성 -->
+                        </div>
+                    </div>
+                    <div class="z-10 relative mt-12 pt-6 border-t border-slate-400">
+                        <div class="text-center mb-8">
+                            <p id="doc-date" class="text-sm font-bold text-slate-800"></p>
+                        </div>
+                        <div id="doc-signatures">
+                            <!-- JS를 통해 서명부 생성 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="ai-modal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-[100] backdrop-blur-sm transition-opacity p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col h-[580px] border border-slate-100">
+            <div class="bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 p-4 text-white flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-2xl bg-white/20 flex items-center justify-center text-white text-base shadow-inner"><i class="fa-solid fa-brain"></i></div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 class="font-bold text-sm">Gemini AI 법률 상담원</h3>
+                            <span class="bg-emerald-400/30 text-emerald-200 text-[9px] font-bold px-2 py-0.5 rounded-full border border-emerald-300/30">온라인</span>
+                        </div>
+                        <p class="text-[10px] text-indigo-200">Gemini 2.5 Flash 기반 실시간 법률/생활 대화 도우미</p>
+                    </div>
+                </div>
+                <button onclick="closeAIAgent()" class="text-white/80 hover:text-white transition p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="chat-messages" class="flex-grow p-4 overflow-y-auto space-y-3.5 bg-slate-50 text-xs">
+                <div class="flex items-start space-x-2">
+                    <div class="w-7 h-7 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bg-white p-3.5 rounded-2xl rounded-tl-none border border-slate-200/80 shadow-sm text-slate-700 leading-relaxed max-w-[85%]">
+                        안녕하세요! Gemini AI 기반 실시간 법률/생활 상식 상담원입니다. 🤖<br><br>
+                        일상에서 부당하거나 억울한 일, 혹은 어떤 서류를 써야 할지 막막한 일이 생기셨나요? <strong>상황을 편하게 적어주시면 법률/행정 지식과 함께 필요한 서류를 추천해 드릴게요!</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-white border-t border-slate-100 flex space-x-2">
+                <input type="text" id="chat-input" onkeypress="if(event.key==='Enter') sendChatMessage()" placeholder="질문이나 상황을 자유롭게 입력하세요" class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-indigo-500">
+                <button onclick="sendChatMessage()" id="chat-send-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center space-x-1">
+                    <span>전송</span><i class="fa-solid fa-paper-plane text-[10px]"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API 키를 여기에 입력하세요!
+        const apiKey = "YOUR_GEMINI_API_KEY_HERE"; 
+        
+        let currentDoc = 'labor';
+        let signatureDataURL = null;
+
+        function showMainHome() {
+            document.getElementById('main-home-section').classList.remove('hidden');
+            document.getElementById('editor-section').classList.add('hidden');
+            document.getElementById('editor-section').classList.remove('grid');
+            document.getElementById('pdf-btn').classList.add('hidden');
+            document.getElementById('print-btn').classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function startDocument(docType) {
+            document.getElementById('main-home-section').classList.add('hidden');
+            document.getElementById('editor-section').classList.remove('hidden');
+            document.getElementById('editor-section').classList.add('grid');
+            document.getElementById('pdf-btn').classList.remove('hidden');
+            document.getElementById('print-btn').classList.remove('hidden');
+            selectDoc(docType);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        const canvas = document.getElementById('sig-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        function initCanvas() {
+            if(!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#0f172a';
+        }
+        window.addEventListener('resize', initCanvas);
+        setTimeout(initCanvas, 100);
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left,
+                y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+            };
+        }
+        canvas.addEventListener('mousedown', e => { isDrawing = true; ctx.beginPath(); ctx.moveTo(getPos(e).x, getPos(e).y); });
+        canvas.addEventListener('mousemove', e => { if(isDrawing){ ctx.lineTo(getPos(e).x, getPos(e).y); ctx.stroke(); } });
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; ctx.beginPath(); ctx.moveTo(getPos(e).x, getPos(e).y); }, {passive: false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if(isDrawing){ ctx.lineTo(getPos(e).x, getPos(e).y); ctx.stroke(); } }, {passive: false});
+        canvas.addEventListener('touchend', () => isDrawing = false);
+
+        function clearSignature() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            signatureDataURL = null;
+            updateDoc();
+        }
+        function applySignature() {
+            signatureDataURL = canvas.toDataURL();
+            document.getElementById('doc-stamp').classList.remove('hidden');
+            updateDoc();
+        }
+
+        function selectDoc(type) {
+            currentDoc = type;
+            document.querySelectorAll('.doc-tab-btn').forEach(btn => btn.classList.remove('active'));
+            const targetBtn = document.getElementById('btn-' + type);
+            if(targetBtn) targetBtn.classList.add('active');
+            
+            document.querySelectorAll('.form-section').forEach(form => form.classList.remove('active'));
+            let targetForm = document.getElementById('form-' + type);
+            if(!targetForm) {
+                targetForm = document.getElementById('form-generic');
+                // 라벨 동적 변경
+                const labels = getLabels(type);
+                document.getElementById('generic-label-a').innerText = labels[0];
+                document.getElementById('generic-label-b').innerText = labels[1];
+            }
+            targetForm.classList.add('active');
+
+            if(['notice', 'complaint', 'smallclaims', 'petition', 'paymentorder', 'statement'].includes(type)){
+                document.getElementById('doc-stamp').classList.add('hidden');
+            }
+            updateDoc();
+        }
+
+        function getLabels(type) {
+            const labels = {
+                'settlement': ['피해자 (갑)', '가해자 (을)'], 'memo': ['서약인 (갑)', '수신자 (을)'], 'nda': ['정보제공자 (갑)', '정보수령자 (을)'],
+                'roommate': ['룸메이트 A', '룸메이트 B'], 'pretrade': ['매도인/임대인', '매수인/임차인'], 'itemtrade': ['판매자', '구매자'],
+                'refund': ['구매자', '판매처'], 'notice': ['발신인', '수신인'], 'petition': ['진정인', '피진정인'],
+                'paymentorder': ['채권자', '채무자'], 'statement': ['진술인(본인)', '대상자(가해자)'], 'testimony': ['목격자(본인)', '사건관련자'],
+                'fieldtrip': ['학생 성명', '보호자 성명'], 'absence': ['학생 성명', '보호자 성명'], 'clubrules': ['동아리 대표', '신규 회원'],
+                'contest': ['팀장', '팀원'], 'study': ['스터디장', '스터디원'], 'parent': ['법정대리인', '미성년자 본인'],
+                'power': ['위임인(본인)', '수임인(대리인)'], 'portrait': ['초상권자(모델)', '촬영자(이용자)'], 'copyright': ['저작재산권자', '이용허락받는자'],
+                'privacy': ['정보제공동의자', '정보수집기관'], 'rental': ['대여자(빌려준사람)', '차용자(빌린사람)'], 'residence': ['거주자', '확인자(소유주 등)'],
+                'damages': ['청구인(피해자)', '피청구인(가해자)'], 'receipt': ['공급받는자', '공급자']
+            };
+            return labels[type] || ['당사자 A (갑)', '당사자 B (을)'];
+        }
+
+        function getVal(id, fallback) {
+            const el = document.getElementById(id);
+            return (el && el.value.trim() !== '') ? el.value : fallback;
+        }
+
+        function renderSigs(parties) {
+            const sigContainer = document.getElementById('doc-signatures');
+            let html = '';
+            sigContainer.className = parties.length === 1 ? 'flex justify-center' : 'grid grid-cols-2 gap-6';
+            parties.forEach((p, idx) => {
+                const isFirst = idx === 0;
+                html += `
+                <div class="p-3 border border-slate-300 ${parties.length===1 ? 'w-64' : ''}">
+                    <p class="font-bold border-b border-slate-300 pb-1 mb-2 text-[12px]">${p.title}</p>
+                    <p class="text-[12px]">성 명: <span class="font-bold">${p.name}</span> ${p.noStamp ? '' : '(인)'}</p>
+                    <div class="mt-2 h-10 flex items-end justify-end">
+                        ${isFirst && signatureDataURL && !p.hideSig ? `<img src="${signatureDataURL}" class="h-8 object-contain">` : (p.hideSig ? '' : '<span class="text-slate-300 italic text-[10px]">(서명 또는 날인)</span>')}
+                    </div>
+                </div>`;
+            });
+            sigContainer.innerHTML = html;
+        }
+
+        function updateDoc() {
+            const now = new Date();
+            document.getElementById('doc-date').innerText = `${now.getFullYear()}년 ${String(now.getMonth()+1).padStart(2,'0')}월 ${String(now.getDate()).padStart(2,'0')}일`;
+            
+            const title = document.getElementById('doc-title');
+            const body = document.getElementById('doc-body');
+            
+            const gA = getVal('g-partyA', 'O O O');
+            const gB = getVal('g-partyB', 'O O O');
+            const gC = getVal('g-content', '본 건에 대한 상세 내용을 상호 확인하고 이에 동의함.');
+            const lA = getLabels(currentDoc);
+
+            title.innerText = getDocTitle(currentDoc);
+            
+            let contentHTML = "";
+            let sigs = [{title: lA[0], name: gA}, {title: lA[1], name: gB, hideSig: true}]; // Default Sigs
+
+            switch(currentDoc) {
+                case 'labor':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">사업주 <strong>${getVal('l-employer','사업주명')}</strong> (이하 "갑")과 근로자 <strong>${getVal('l-employee','근로자명')}</strong> (이하 "을")은 다음과 같이 근로계약을 체결한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 근무 장소 및 담당 업무:</strong> "갑"이 지정하는 사업장(${getVal('l-company','사업장명')})에서 부여하는 제반 업무를 수행한다.</p>
+                            <p><strong>2. 근로 및 휴게 시간:</strong> ${getVal('l-hours','근무시간을 기재하세요.')}. 단, 근로기준법에 따라 4시간 근무 시 30분, 8시간 근무 시 1시간 이상의 휴게시간을 근무 시간 도중에 보장해야 한다.</p>
+                            <p><strong>3. 임금 및 지급 방법:</strong> 시급은 <strong>${parseInt(getVal('l-wage','10030')).toLocaleString()}원</strong>으로 정하며, 임금은 매월 정해진 기일에 "을"의 명의 예금계좌로 전액 입금한다.</p>
+                            <p><strong>4. 주휴수당 및 연장근로:</strong> 1주 동안 규정된 소정근로일을 개근하고 주 15시간 이상 근무한 경우 주휴수당을 지급하며, 연장 및 야간, 휴일 근로 시 통상임금의 50%를 가산하여 지급한다.</p>
+                            <p><strong>5. 연차 유급 휴가:</strong> "갑"은 1년간 80% 이상 출근한 "을"에게 15일의 유급휴가를 부여하며, 1년 미만 근로자에게는 1개월 개근 시 1일의 유급휴가를 부여한다.</p>
+                            <p><strong>6. 사회보험 가입 의무:</strong> "갑"은 관련 법령이 정하는 바에 따라 "을"을 고용산재보험, 건강보험, 국민연금 등 4대 보험에 가입시켜야 한다.</p>
+                            <p><strong>7. 계약의 해지 및 규정 준용:</strong> "갑"이 정당한 사유 없이 계약을 해지할 수 없으며, 본 계약에 명시되지 않은 모든 사항은 근로기준법 및 관련 노동 법령에 따른다.</p>
+                        </div>`;
+                    sigs = [{title:'사업주 (갑)', name:getVal('l-employer','홍길동')}, {title:'근로자 (을)', name:getVal('l-employee','김알바'), hideSig:true}];
+                    break;
+
+                case 'iou':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">채권자 <strong>${getVal('i-lender','채권자')}</strong>와 채무자 <strong>${getVal('i-borrower','채무자')}</strong>는 아래와 같이 금전 대여 계약을 체결한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 차용 금액의 명시:</strong> 채무자는 채권자로부터 일금 <strong>${parseInt(getVal('i-amount','0')).toLocaleString()}원</strong> (₩ ${parseInt(getVal('i-amount','0')).toLocaleString()})을 틀림없이 차용하였다.</p>
+                            <p><strong>2. 변제 기일의 지정:</strong> 채무자는 위 차용 금액 전액을 ${getVal('i-date','0000년 00월 00일')} 까지 채권자에게 어김없이 반환하여야 한다.</p>
+                            <p><strong>3. 이자 및 지급 방법:</strong> 본 대여금에 대한 이자는 연 (   )%로 정하며, 매월 (   )일에 채권자가 지정하는 계좌로 송금한다. (무이자일 경우 이 조항은 무효로 한다.)</p>
+                            <p><strong>4. 기한의 이익 상실:</strong> 채무자가 약정된 이자 지급을 2회 이상 지체하거나, 파산, 강제집행 등 신용 상태에 중대한 변동이 생긴 경우 기한의 이익을 상실하고 즉시 원리금 전액을 변제해야 한다.</p>
+                            <p><strong>5. 지연 손해금(연체이자):</strong> 채무자가 변제기일 내에 원금 또는 이자를 상환하지 않을 경우, 연 20%의 비율에 의한 지연손해금을 가산하여 지급하기로 약정한다.</p>
+                            <p><strong>6. 부대 비용의 부담:</strong> 본 대여금의 송금 수수료, 채권 회수를 위한 법적 조치 비용, 내용증명 발송 비용 등 제반 비용은 전적으로 채무자가 부담한다.</p>
+                            <p><strong>7. 관할 법원의 합의:</strong> 본 금전대여 계약과 관련된 모든 법적 분쟁이 발생할 경우, 제소 당시 채권자의 주소지를 관할하는 지방법원을 합의 관할법원으로 한다.</p>
+                        </div>`;
+                    sigs = [{title:'채무자 (빌린 사람)', name:getVal('i-borrower','채무자')}, {title:'채권자', name:getVal('i-lender','채권자'), hideSig:true}];
+                    break;
+
+                case 'complaint':
+                    contentHTML = `
+                        <p class="font-bold text-lg mb-4 text-center">고소인 <strong>${getVal('c-plaintiff','고소인')}</strong>은 피고소인 <strong>${getVal('c-defendant','피고소인')}</strong>을 <strong>[${getVal('c-charge','사기죄 등')}]</strong>(으)로 고소하오니 처벌하여 주시기 바랍니다.</p>
+                        <div class="border-t-2 border-slate-900 pt-5 mt-4 space-y-4 text-[13px] leading-relaxed">
+                            <div><strong class="text-sm">1. 고소의 취지</strong><p class="mt-1 ml-2 text-slate-700">고소인은 피고소인을 ${getVal('c-charge','해당 범죄')} 혐의로 고소하오니, 철저히 조사하여 법에 따라 엄벌해 주시기 바랍니다.</p></div>
+                            <div><strong class="text-sm">2. 범죄 사실 (사건의 경위)</strong><p class="mt-1 ml-2 text-slate-700 whitespace-pre-wrap border border-slate-200 p-4 bg-slate-50">${getVal('c-content','피해 사실을 6하 원칙에 따라 상세히 기재하세요.')}</p></div>
+                            <div><strong class="text-sm">3. 고소의 이유 및 피해 내역</strong><p class="mt-1 ml-2 text-slate-700">피고소인의 기망 및 불법 행위로 인해 고소인은 막대한 재산적, 정신적 피해를 입었으며, 현재 일상생활에 심각한 지장을 초래하고 있습니다.</p></div>
+                            <div><strong class="text-sm">4. 피고소인의 태도 및 처벌 필요성</strong><p class="mt-1 ml-2 text-slate-700">피고소인은 범행 이후 전혀 반성의 기미를 보이지 않으며 피해 변제 노력도 전무하므로, 제2의 피해자를 막기 위해 강력한 형사 처벌이 요구됩니다.</p></div>
+                            <div><strong class="text-sm">5. 관련 사건 수사 및 재판 여부</strong><p class="mt-1 ml-2 text-slate-700">본 고소 내용과 동일한 사건 또는 관련 사건으로 다른 수사기관에서 수사 중이거나 법원에서 재판 중인 사실이 일절 없음을 확인합니다.</p></div>
+                            <div><strong class="text-sm">6. 첨부 서류 및 증거 자료</strong><p class="mt-1 ml-2 text-slate-700">피고소인과의 대화 내역 캡처본 1부, 계좌 이체 영수증 1부, 기타 범죄 사실을 입증할 수 있는 객관적 자료 일체를 별도로 첨부하여 제출합니다.</p></div>
+                            <div><strong class="text-sm">7. 허위 사실 기재에 대한 서약</strong><p class="mt-1 ml-2 text-slate-700 font-bold">본 고소장에 기재한 내용은 모두 진실되며, 만일 고의로 허위 사실을 기재하였을 때에는 형법에 따라 무고죄로 처벌받을 것을 서약합니다.</p></div>
+                        </div>`;
+                    sigs = [{title:'고소인 (본인)', name:getVal('c-plaintiff','고소인')}];
+                    break;
+
+                case 'settlement':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">피해자 <strong>${gA}</strong>와(과) 가해자 <strong>${gB}</strong>은(는) 아래 명시된 사건에 관하여 상호 원만하게 합의하고 다음 조항을 성실히 이행할 것을 약정한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 사건의 개요:</strong> ${gC}</p>
+                            <p><strong>2. 합의 금액 및 지급:</strong> 가해자는 피해자에게 손해배상금 및 위자료 명목으로 일금 (       )원을 지정된 기일까지 계좌로 이체하여 지급한다.</p>
+                            <p><strong>3. 처벌 불원 및 소 취하:</strong> 피해자는 위 합의금을 수령함과 동시에 가해자의 형사 처벌을 원치 아니하며, 진행 중인 고소/고발 또는 민사 소송을 모두 취하한다.</p>
+                            <p><strong>4. 추가 청구의 포기:</strong> 본 합의가 성립된 이후, 피해자는 본 사건과 관련하여 향후 어떠한 민사상, 형사상 이의 제기나 추가 손해배상을 청구하지 아니한다.</p>
+                            <p><strong>5. 비밀 유지 의무:</strong> 양 당사자는 본 합의의 구체적 내용 및 합의금 액수 등에 대하여 제3자에게 누설하거나 언론, 인터넷 등에 유포하지 아니한다.</p>
+                            <p><strong>6. 위약금 및 손해배상:</strong> 어느 일방이 본 합의서의 조항을 위반할 경우, 위반 당사자는 그로 인해 발생한 모든 직간접적 손해를 타방에게 배상하여야 한다.</p>
+                            <p><strong>7. 효력 발생 및 증명:</strong> 본 합의서는 양 당사자가 서명 날인한 시점부터 즉시 법적 효력을 발생하며, 이를 증명하기 위해 2부를 작성하여 각 1부씩 보관한다.</p>
+                        </div>`;
+                    break;
+
+                case 'memo':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">본 각서의 작성자 <strong>${gA}</strong>은(는) 수신자 <strong>${gB}</strong>에게 다음 사항을 확약하고 이를 위반할 경우 어떠한 불이익도 감수할 것을 서약한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 작성 경위 및 사실 인정:</strong> ${gC}</p>
+                            <p><strong>2. 확약 및 의무 이행:</strong> 작성자는 본건과 관련하여 수신자가 요구하는 시정 조치 및 의무 사항을 성실하게 이행할 것을 명확히 약속한다.</p>
+                            <p><strong>3. 이행 기한의 명시:</strong> 작성자는 명시된 의무 사항을 (       년    월    일 )까지 반드시 완료하며, 어떠한 이유로도 기한을 연장하거나 지연하지 않는다.</p>
+                            <p><strong>4. 권리의 포기:</strong> 본 각서에 명시된 의무를 불이행할 경우, 작성자는 본건과 관련하여 수신자에게 주장할 수 있는 일체의 항변권 및 기타 권리를 포기한다.</p>
+                            <p><strong>5. 위반 시 제재 조치:</strong> 약속 사항을 위반할 경우, 수신자가 취하는 민사상 손해배상 청구 및 형사상 고발 조치 등 모든 법적 처벌을 달게 받는다.</p>
+                            <p><strong>6. 비용 부담:</strong> 작성자의 의무 불이행으로 인해 수신자에게 발생하는 변호사 선임비, 소송 비용 등 모든 부대 비용은 전적으로 작성자가 부담한다.</p>
+                            <p><strong>7. 관할 법원의 지정:</strong> 본 각서의 불이행으로 인하여 소송이 제기될 경우, 수신자의 주소지를 관할하는 법원을 전속적 합의 관할로 한다.</p>
+                        </div>`;
+                    break;
+
+                case 'nda':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">정보제공자 <strong>${gA}</strong>와(과) 정보수령자 <strong>${gB}</strong>은(는) 상호간의 업무 협력 과정에서 취득하는 비밀정보를 보호하기 위해 다음과 같이 비밀유지계약을 체결한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 계약의 목적:</strong> 본 계약은 양 당사자가 거래 또는 프로젝트를 수행함에 있어 제공받은 비밀정보를 철저히 보호하는 것을 목적으로 한다.</p>
+                            <p><strong>2. 비밀정보의 정의:</strong> 비밀정보란 기술, 영업, 재무, 인사, 고객 명부 등 문서, 구두, 전자파일 등 형태를 불문하고 "갑"이 "을"에게 제공한 모든 정보를 의미한다. (${gC})</p>
+                            <p><strong>3. 엄격한 비밀유지 의무:</strong> "을"은 제공받은 비밀정보를 사전 서면 동의 없이 제3자에게 제공, 누설, 공개할 수 없으며 선량한 관리자의 주의 의무를 다하여 보관해야 한다.</p>
+                            <p><strong>4. 정보의 목적 외 사용 금지:</strong> "을"은 비밀정보를 본 계약에서 정한 본래의 협력 목적 이외의 어떠한 용도(개인적 이익, 경쟁사 제공 등)로도 사용하여서는 아니 된다.</p>
+                            <p><strong>5. 정보의 반환 및 폐기:</strong> 본 계약이 종료되거나 "갑"의 요청이 있을 경우, "을"은 즉시 모든 비밀정보 원본 및 사본을 반환하거나 영구적으로 폐기하고 이를 증명해야 한다.</p>
+                            <p><strong>6. 손해배상 책임:</strong> "을"이 본 계약을 위반하여 "갑"에게 직간접적인 재산상, 영업상 손해가 발생한 경우, "을"은 그 모든 손해액을 지체 없이 배상하여야 한다.</p>
+                            <p><strong>7. 계약의 유효 기간:</strong> 본 비밀유지 의무는 양 당사자 간의 업무 협력이 종료된 이후에도 ( 3 )년 동안 동일한 효력을 유지하며 지속된다.</p>
+                        </div>`;
+                    break;
+
+                case 'roommate':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">룸메이트 <strong>${gA}</strong>와(과) <strong>${gB}</strong>은(는) 상호 존중과 배려를 바탕으로 공동 주거 공간에서 지켜야 할 다음의 룸메이트 수칙에 동의한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 수칙의 목적:</strong> 본 수칙은 룸메이트 간의 분쟁을 예방하고 쾌적하고 안전한 공동 주거 환경을 조성 및 유지하는 것을 목적으로 한다.</p>
+                            <p><strong>2. 생활비 및 공과금 분담:</strong> 월세, 관리비, 전기요금, 가스요금, 인터넷 등 공동 생활비는 정확히 ( 5 : 5 ) 비율로 나누어 매월 지정된 날짜에 납부한다.</p>
+                            <p><strong>3. 청소 및 위생 관리:</strong> 화장실 청소, 분리수거, 쓰레기 배출 등은 주 단위로 교대하여 담당하며, 공용 공간은 사용 직후 본인이 직접 정리정돈을 원칙으로 한다.</p>
+                            <p><strong>4. 외부인 방문 및 숙박 규정:</strong> 이성 친구를 포함한 외부인의 출입 및 숙박은 사전에 상대방의 명시적 동의를 구해야 하며, 임의로 허락 없이 외부인을 초대할 수 없다.</p>
+                            <p><strong>5. 소음 및 개인 사생활 존중:</strong> 심야 시간(밤 11시 ~ 아침 7시)에는 큰 소음 방지, 음악 및 통화 소리 최소화 등 상대방의 수면권과 사생활을 철저히 존중한다.</p>
+                            <p><strong>6. 사적 물품 사용 금지:</strong> 냉장고 내 식료품, 세면도구, 화장품 등 개인 소유의 물품은 상대방의 사전 허락 없이 무단으로 사용하거나 섭취하지 않는다. (${gC})</p>
+                            <p><strong>7. 퇴실 및 보증금 정산:</strong> 계약 만료 전 일방이 퇴실을 원할 경우 최소 1개월 전에 통보해야 하며, 발생한 기물 파손 비용 등을 공제한 후 보증금을 정산한다.</p>
+                        </div>`;
+                    break;
+
+                case 'refund':
+                    contentHTML = `
+                        <p class="mb-3 text-justify">구매자 <strong>${gA}</strong>은(는) 판매처 <strong>${gB}</strong>에 대하여 전자상거래 등에서의 소비자보호에 관한 법률에 의거하여 다음과 같이 환불 및 청약철회를 정식으로 요청합니다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 구매 및 결제 내역:</strong> 구매 일자, 주문 번호, 결제 금액, 그리고 구매한 상품의 정확한 명칭 및 수량 내역을 확인합니다. (${gC})</p>
+                            <p><strong>2. 환불 및 청약철회 사유:</strong> 본 구매자는 단순 변심, 제품 하자, 배송 지연, 혹은 허위광고 등의 명백한 사유로 인하여 본 상품에 대한 구매 의사를 철회합니다.</p>
+                            <p><strong>3. 법정 청약철회 기간의 준수:</strong> 본 요청은 상품 수령일로부터 7일 이내(또는 하자 사실을 안 날로부터 30일 이내)에 행사하는 정당한 법적 권리입니다.</p>
+                            <p><strong>4. 상품의 보존 상태:</strong> 반환할 상품은 포장 박스, 태그, 부속품 등이 구매 당시와 동일하게 유지되어 있으며, 재판매가 가능한 훼손되지 않은 상태입니다.</p>
+                            <p><strong>5. 환불 요구 금액 및 결제 취소:</strong> 귀사는 상품이 반환되는 즉시 신용카드 승인 취소 또는 지정한 계좌로 지연 없이 결제 대금 전액을 환급하여야 합니다.</p>
+                            <p><strong>6. 지연 배상금의 청구:</strong> 귀사가 정당한 사유 없이 환불을 지연할 경우, 관련 법령에 따른 연 15%의 지연배상금을 가산하여 청구할 권리가 있음을 고지합니다.</p>
+                            <p><strong>7. 미이행 시 향후 법적 조치:</strong> 본 환불 요청이 거절되거나 무단으로 지연될 경우, 한국소비자원 피해구제 신청 및 전자문서분쟁조정위원회 제소 등 적극적인 구제 절차를 밟겠습니다.</p>
+                        </div>`;
+                    break;
+
+                case 'absence':
+                    contentHTML = `
+                        <p class="mb-5 text-justify">위 학생은 본교 학교생활규정 및 출결 관리 지침에 따라 아래와 같은 사유로 부득이하게 결석하였기에, 관련 증빙 서류를 첨부하여 결석 사유서를 제출합니다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 대상 학생 인적사항:</strong> 소속(학교/학년/반) 및 성명 <strong>${gA}</strong>에 대한 출결 처리를 요청합니다.</p>
+                            <p><strong>2. 결석 발생 일시 및 기간:</strong> (      년   월   일) 부터 (      년   월   일) 까지 총 (    )일간의 출석 인정 또는 병결 처리를 신청합니다.</p>
+                            <p><strong>3. 구체적인 결석 사유:</strong> ${gB} (질병, 법정 전염병, 경조사, 가족사유 등 규정에 근거한 상세 사유를 명시)</p>
+                            <p><strong>4. 출결 규정 적용 근거:</strong> 본 신청은 학교생활기록부 기재요령 및 본교 학업성적관리위원회 규정의 '출석으로 인정하는 결석' 조항에 근거합니다.</p>
+                            <p><strong>5. 객관적 증빙 서류 첨부:</strong> 본 사유를 증명하기 위하여 진단서, 진료확인서, 처방전, 가족관계증명서, 또는 학부모 의견서 등의 증빙 자료를 정식으로 첨부합니다. (${gC})</p>
+                            <p><strong>6. 학업 보충 및 생활 계획:</strong> 결석 기간 동안 누락된 교과 진도 및 수행평가 내용은 자가 학습 및 동료 학생들의 협조를 받아 성실히 보충하겠습니다.</p>
+                            <p><strong>7. 사실 확인 및 보호자 서약:</strong> 위 기재된 결석 사유와 제출된 증빙 자료는 한 치의 거짓도 없는 진실임을 학생 본인과 법정대리인이 공동으로 서약 및 확인합니다.</p>
+                        </div>`;
+                    sigs = [{title:'보호자 성명', name:gB}, {title:'학생 성명', name:gA, hideSig:true}];
+                    break;
+                    
+                case 'fieldtrip':
+                    contentHTML = `
+                        <p class="mb-5 text-justify">본인은 본교의 '교외체험학습 운영 규정'에 의거하여 아래와 같이 체험학습을 신청하오니 허가하여 주시기 바랍니다. 체험 기간 중 학생의 안전과 생활지도에 만전을 기하겠습니다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 학생 인적사항 및 기간:</strong> 신청 학생 <strong>${gA}</strong>은(는) (      년   월   일) 부터 (      년   월   일) 까지 교외체험학습을 신청합니다.</p>
+                            <p><strong>2. 체험학습의 기본 목적:</strong> 가족 간의 유대감 강화, 문화 유적지 탐방, 진로 탐색 등 학교 밖에서의 창의적이고 자기주도적인 학습 경험을 도모합니다.</p>
+                            <p><strong>3. 상세 목적지 및 동선:</strong> ${gC}</p>
+                            <p><strong>4. 보호자 및 인솔자 정보:</strong> 동행하는 보호자(인솔자) 성명 <strong>${gB}</strong>, 연락처(010-    -    )이며, 체험 전 과정에서 보호자가 직접 동행하여 안전을 책임집니다.</p>
+                            <p><strong>5. 세부적인 현장 학습 계획:</strong> 목적지에 대한 사전 지식 조사, 현장 직접 체험 및 관찰, 사진 촬영 및 기록, 방문기관 인터뷰 등 구체적 활동을 수행합니다.</p>
+                            <p><strong>6. 사후 결과보고서 제출 의무:</strong> 교외체험학습 일정이 종료된 후, 학교 규정에 명시된 기한 내에 학생이 직접 작성한 '교외체험학습 결과보고서'를 반드시 제출하겠습니다.</p>
+                            <p><strong>7. 안전사고 예방 서약:</strong> 본 체험학습 중 발생하는 모든 안전사고에 대한 책임은 인솔자인 보호자에게 있으며, 감염병 예방 수칙 및 교통안전 규칙을 철저히 준수할 것을 서약합니다.</p>
+                        </div>`;
+                    sigs = [{title:'보호자 성명', name:gB}, {title:'학생 성명', name:gA, hideSig:true}];
+                    break;
+
+                default:
+                    // 위에서 처리되지 않은 모든 문서들(notice, petition, copyright 등)에 대한 공통 7줄 양식
+                    contentHTML = `
+                        <p class="mb-4 text-justify">당사자 <strong>${gA}</strong>와(과) <strong>${gB}</strong>은(는) 아래 명시된 내용에 대해 합의 및 확인하고, 신의성실의 원칙에 입각하여 본 문서를 작성한다.</p>
+                        <div class="border border-slate-300 p-5 space-y-3 bg-slate-50 text-[13px] leading-relaxed">
+                            <p><strong>1. 문서 작성의 목적 및 배경:</strong> 양 당사자는 본 문서에 기재된 사안을 명확히 하고 향후 발생할 수 있는 오해나 법적 분쟁을 사전에 예방하기 위해 이를 작성한다.</p>
+                            <p><strong>2. 주요 약정 사항 및 구체적 내용:</strong> ${gC}</p>
+                            <p><strong>3. 권리의 행사 및 의무의 이행:</strong> 당사자들은 본 문서에 규정된 각자의 권리를 정당하게 행사하며, 부여된 책무와 의무를 지체 없이 성실하게 이행하여야 한다.</p>
+                            <p><strong>4. 위반에 따른 손해배상 책임:</strong> 어느 일방이 고의 또는 과실로 본 약정의 조항을 위반하여 타방에게 피해를 입힌 경우, 그로 인해 발생한 물질적, 정신적 손해를 배상할 책임이 있다.</p>
+                            <p><strong>5. 계약/합의의 해지 및 변경 조건:</strong> 본 문서 내용의 수정, 변경, 또는 계약의 해지는 반드시 양 당사자의 명시적인 서면 합의(또는 동의)를 통해서만 그 효력이 발생한다.</p>
+                            <p><strong>6. 비밀 유지 및 제3자 제공 금지:</strong> 양 당사자는 본 문서의 체결 사실 및 세부 조건 등 업무상 취득한 정보를 상대방의 동의 없이 제3자에게 누설하거나 유포해서는 아니 된다.</p>
+                            <p><strong>7. 관할 법원 및 분쟁 해결 절차:</strong> 본 문서의 해석에 이견이 있거나 기타 분쟁이 발생할 경우 상호 원만히 협의하되, 소송 제기 시 청구인(또는 원고)의 주소지 관할 법원으로 한다.</p>
+                        </div>`;
+                    sigs = [{title:lA[0], name:gA}, {title:lA[1], name:gB, hideSig:true}];
+                    break;
+            }
+
+            body.innerHTML = contentHTML;
+            renderSigs(sigs);
+        }
+
+        function getDocTitle(type) {
+            const titles = {
+                'labor':'표준 근로계약서', 'iou':'차 용 증', 'settlement':'합 의 서', 'memo':'각 서 (서약서)', 'nda':'비밀유지계약서 (NDA)',
+                'complaint':'고 소 장', 'smallclaims':'소 장 (소액사건)', 'refund':'청약철회 요청서', 'notice':'내 용 증 명',
+                'parent':'법정대리인 동의서', 'power':'위 임 장', 'portrait':'초상권 동의서',
+                'copyright':'저작물 이용허락서', 'petition':'진 정 서', 'paymentorder':'지급명령 신청서',
+                'statement':'피해 경위서', 'testimony':'목격자 진술서', 'clubrules':'동아리 약정서',
+                'contest':'공모전 팀원 협약서', 'study':'스터디 규칙서', 'roommate':'룸메이트 수칙',
+                'privacy':'개인정보 동의서', 'rental':'물품 대여 확인서', 'residence':'거주사실 확인서',
+                'damages':'손해배상 청구서', 'receipt':'간이 영수증', 'pretrade':'가계약 확인서', 'itemtrade':'직거래 계약서',
+                'absence':'결석 사유서', 'fieldtrip':'체험학습 신청서'
+            };
+            return titles[type] || '법 률 문 서';
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('document-preview');
+            const docTitle = document.getElementById('doc-title').innerText.replace(/\s+/g, '_');
+            const originalBoxShadow = element.style.boxShadow;
+            element.style.boxShadow = 'none';
+
+            const opt = {
+                margin:       0,
+                filename:     `LegalDoc_${docTitle}_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const btn = document.getElementById('pdf-btn');
+            const originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span class="hidden sm:inline-block">생성 중...</span>';
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.boxShadow = originalBoxShadow;
+                btn.innerHTML = originalBtnHtml;
+            });
+        }
+
+        function openAIAgent() {
+            const modal = document.getElementById('ai-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAIAgent() {
+            const modal = document.getElementById('ai-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function fetchGeminiAI(userQuery) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const systemPrompt = `당신은 대한민국 국민들의 실생활 법률, 학교생활 등 고민을 상담해 주는 'LegalDoc AI 상담원'입니다.
+질문자가 18세 미만 청소년일 수도 있으므로 매우 건전하고 친절하며 이해하기 쉬운 톤으로 답변하세요.
+답변 후에는 아래 문서 ID들 중 이 질문에 가장 도움이 되는 서류 1개를 반드시 추천 형식으로 명시하세요.
+사용 가능한 서류 ID: labor, iou, settlement, memo, nda, roommate, pretrade, itemtrade, complaint, smallclaims, refund, notice, petition, paymentorder, statement, testimony, fieldtrip, absence, clubrules, contest, study, parent, power, portrait, copyright, privacy, rental, residence, damages, receipt.
+답변 마지막 줄에는 단일 JSON 객체 태그만 포함하세요: __RECOMMENDED_DOC__:{"docId": "추천 서류 ID", "title": "서류 제목"}`;
+
+            const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
+
+            try {
+                const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                return result.candidates?.[0]?.content?.parts?.[0]?.text || "답변 생성 실패.";
+            } catch (err) {
+                return "현재 API 키가 설정되지 않았거나 네트워크 통신 오류가 발생했습니다. 코드 내의 apiKey 변수를 확인해 주세요.";
+            }
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const chatMessages = document.getElementById('chat-messages');
+            const userBubble = document.createElement('div');
+            userBubble.className = "flex justify-end";
+            userBubble.innerHTML = `<div class="bg-indigo-600 text-white p-2.5 rounded-2xl rounded-tr-none text-xs max-w-[80%] shadow-sm leading-relaxed">${text}</div>`;
+            chatMessages.appendChild(userBubble);
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const loadingBubble = document.createElement('div');
+            loadingBubble.className = "flex items-start space-x-2";
+            loadingBubble.innerHTML = `<div class="w-7 h-7 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5"><i class="fa-solid fa-brain fa-spin"></i></div>
+                <div class="bg-white border border-slate-200/80 p-3 rounded-2xl rounded-tl-none text-slate-500 text-xs shadow-sm flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-indigo-500"></i><span>Gemini AI가 상황을 분석 중입니다...</span>
+                </div>`;
+            chatMessages.appendChild(loadingBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const aiResponseText = await fetchGeminiAI(text);
+            chatMessages.removeChild(loadingBubble);
+
+            let matchedDoc = 'labor';
+            let cleanResponse = aiResponseText;
+            const docMatch = aiResponseText.match(/__RECOMMENDED_DOC__:(.*)/);
+            if (docMatch) {
+                try {
+                    const docObj = JSON.parse(docMatch[1]);
+                    matchedDoc = docObj.docId || 'labor';
+                } catch(e) {}
+                cleanResponse = aiResponseText.replace(/__RECOMMENDED_DOC__:.*/, '').trim();
+            } else {
+                if(text.includes('사기')) matchedDoc = 'complaint';
+                else if(text.includes('돈')) matchedDoc = 'iou';
+                else if(text.includes('결석')) matchedDoc = 'absence';
+                else if(text.includes('환불')) matchedDoc = 'refund';
+            }
+
+            const aiBubble = document.createElement('div');
+            aiBubble.className = "flex items-start space-x-2";
+            const formattedText = cleanResponse.replace(/\n/g, '<br>');
+            aiBubble.innerHTML = `
+                <div class="w-7 h-7 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5"><i class="fa-solid fa-robot"></i></div>
+                <div class="bg-white p-3.5 rounded-2xl rounded-tl-none border border-slate-200/80 shadow-sm text-slate-700 leading-relaxed max-w-[88%] space-y-3">
+                    <p class="text-[12px]">${formattedText}</p>
+                    <div class="pt-2 border-t border-slate-100">
+                        <button onclick="closeAIAgent(); startDocument('${matchedDoc}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-1">
+                            <span>[${getDocTitle(matchedDoc)}] 양식 작성하기</span><i class="fa-solid fa-arrow-right text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>`;
+            chatMessages.appendChild(aiBubble);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        updateDoc();
+    </script>
+</body>
+</html>
